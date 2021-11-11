@@ -9,57 +9,68 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 class Model(nn.Module):
     def __init__(self):
         super(Model, self).__init__()
-        self.flatten = nn.Flatten()
         self.net1 = nn.Sequential(nn.Linear(28, 32),
-                                  nn.ReLU(),
-                                  nn.Dropout(0.3),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.1),
                                   nn.Linear(32, 128),
-                                  nn.ReLU(),
+                                  nn.Tanh(),
                                   nn.Dropout(0.4),
                                   nn.Linear(128, 256),
-                                  nn.ReLU(),
-                                  nn.Dropout(0.4),
-                                  nn.Linear(256, 512),
-                                  nn.ReLU(),
-                                  nn.Dropout(0.4),
-                                  nn.Linear(512, 256),
-                                  nn.ReLU(),
+                                  nn.Tanh(),
                                   nn.Dropout(0.35),
+                                  nn.Linear(256, 512),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.3),
+                                  nn.Linear(512, 512),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.45),
+                                  nn.Linear(512, 256),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.3),
                                   nn.Linear(256, 128),
                                   nn.Tanh(),
-                                  nn.Dropout(0.3),
+                                  nn.Dropout(0.15),
                                   nn.Linear(128, 32),
                                   nn.Tanh(),
-                                  nn.Dropout(0.3),
+                                  nn.Dropout(0.2),
                                   nn.Linear(32, 16),
                                   nn.Tanh(),
-                                  nn.Dropout(0.2),
+                                  nn.Dropout(0.15),
                                   nn.Linear(16, 1)
                                   )
-        self.net2 = nn.Sequential(nn.Linear(28 , 32),
-                                    nn.Sigmoid(),
-                                    nn.Dropout(0.2),
-                                    nn.Linear(32, 64),
-                                    nn.Sigmoid(),
-                                    nn.Dropout(0.2),
-                                    nn.Linear(64, 128),
-                                    nn.Sigmoid(),
-                                    nn.Dropout(0.2),
-                                    nn.Linear(128, 64),
-                                    nn.Sigmoid(),
-                                    nn.Dropout(0.2),
-                                    nn.Linear(64, 16),
-                                    nn.Sigmoid(),
-                                    nn.Dropout(0.2),
-                                    nn.Linear(16, 1),
-                                    nn.Softplus(1,1),
+        self.net2 = nn.Sequential(nn.Linear(28, 32),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.2),
+                                  nn.Linear(32, 64),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.2),
+                                  nn.Linear(64, 128),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.2),
+                                  nn.Linear(128, 128),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.3),
+                                  nn.Linear(128, 128),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.3),
+                                  nn.Linear(128, 128),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.2),
+                                  nn.Linear(128, 64),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.2),
+                                  nn.Linear(64, 16),
+                                  nn.Tanh(),
+                                  nn.Dropout(0.2),
+                                  nn.Linear(16, 1),
+                                  nn.Softplus()
                                   )
 
 
     def forward(self, x, fit_variance=False):
         # torch.log(torch.var(x))
         #forward = torch.cat((self.net1(x), torch.ones(self.net1(x).size(0), 1) * 0.0018), dim=1)
-        forward = torch.cat((self.net1(x), self.net2(x)), dim=1)
+        forward = torch.cat((self.net1(x), self.net2(x).abs()), dim=1)
         return forward
 
 
@@ -75,14 +86,14 @@ def train(dataloader, model, loss_fn, optimizer, loss_history=None, fit_variance
 
 
         # Compute prediction error
-        pred = model(X)
+        pred = model(X).to(device)
         if fit_variance == False:
-            loss = ((pred - y) ** 2).mean()
+            loss = ((pred - y) ** 2).mean().to(device)
         else:
             #for n in model.net1.parameters():
             #    n.requires_grad=False
-            loss = loss_fn(pred[:, 0], y[:,0], pred[:, 1])
-            MSE_loss = ((pred[:,0] - y[:,0]) ** 2).mean()
+            loss = loss_fn(pred[:, 0], y[:,0], pred[:, 1]).to(device)
+            MSE_loss = ((pred[:,0] - y[:,0]) ** 2).mean().to(device)
             if batch % 100 == 0:
                 print(f'MSE_loss; {MSE_loss:.5f}')
 

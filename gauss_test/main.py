@@ -21,12 +21,12 @@ dataset = NoiseDataset()
 
 train_size = int(train_fraction * len(dataset))
 test_size = len(dataset) - train_size
-torch.manual_seed(13)
+torch.manual_seed(2)
 train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 test_dataset = val_dataset
 
 loader_kwargs = {
-    "batch_size": 32,
+    "batch_size": 64,
     "drop_last": False,
     "num_workers": 0,
     "pin_memory": False,
@@ -43,7 +43,7 @@ test_loader = DataLoader(dataset=test_dataset,
                          )
 
 model_path = build_dir / "nn.torch"
-model = Model()
+model = Model().to(device)
 model.apply(weights_init_uniform_rule)
 model.to(device)
 
@@ -57,8 +57,8 @@ else:
                                  lr=0.0005
                                  )
 
-    epochs = 8000
-    start_var = 1
+    epochs = 6000
+    start_var = 1000
 
     loss_history = {"train": [], "validation": []}
     for t in range(epochs):
