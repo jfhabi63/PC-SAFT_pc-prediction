@@ -1,17 +1,13 @@
 import pickle
 from pathlib import Path
-
-import torch
 from torch.utils.data import DataLoader
-
 from Dataset import *
 from Model import *
 from data_extraction import *
 
-from sklearn.model_selection import train_test_split
+
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(torch.cuda.is_available())
 build_dir = Path("build")
 if not build_dir.exists():
     build_dir.mkdir()
