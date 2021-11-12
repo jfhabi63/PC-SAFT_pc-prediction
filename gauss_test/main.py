@@ -21,6 +21,7 @@ torch.manual_seed(2)
 train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 test_dataset = val_dataset
 
+
 loader_kwargs = {
     "batch_size": 64,
     "drop_last": False,
@@ -53,7 +54,7 @@ else:
                                  lr=0.0005
                                  )
 
-    epochs = 6000
+    epochs = 2000
     start_var = 1000
 
     loss_history = {"train": [], "validation": []}
