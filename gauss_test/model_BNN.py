@@ -1,60 +1,68 @@
 import torch
-from torch import nn
-import numpy as np
-import matplotlib.pyplot as plt
-import pyro
-import pyro.distributions as dist
+import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
+import torch.optim as optim
+import numpy as np
 
+from blitz.modules import BayesianLinear
+from blitz.utils import variational_estimator
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
+print(torch.cuda.is_available())
 
-
-class NN(nn.Module):
+@variational_estimator
+class BayesianModel(nn.Module):
     def __init__(self):
-        super(NN, self).__init__()
-        self.lin1 = nn.Linear(28,32)
-        self.lin2 = nn.Linear(32,32)
-        self.lin3 = nn.Linear(32,1)
+        super().__init__()
+        self.net = nn.Sequential(BayesianLinear(28, 32),
+                                  nn.LeakyReLU(),
+                                  nn.Dropout(0),
+                                  BayesianLinear(32, 128),
+                                  nn.LeakyReLU(),
+                                  nn.Dropout(0),
+                                 BayesianLinear(128, 256),
+                                 nn.LeakyReLU(),
+                                 nn.Dropout(0),
+                                 BayesianLinear(256, 512),
+                                 nn.LeakyReLU(),
+                                 nn.Dropout(0),
+                                 BayesianLinear(512, 512),
+                                 nn.LeakyReLU(),
+                                 nn.Dropout(0),
+                                 BayesianLinear(512, 128),
+                                 nn.LeakyReLU(),
+                                 nn.Dropout(0),
+                                 BayesianLinear(128, 64),
+                                 nn.LeakyReLU(),
+                                 nn.Dropout(0),
+                                 BayesianLinear(64, 32),
+                                 nn.LeakyReLU(),
+                                 nn.Dropout(0),
+                                  BayesianLinear(32, 16),
+                                  nn.LeakyReLU(),
+                                  nn.Dropout(0),
+                                  BayesianLinear(16, 1))
+    def forward(self,x):
+        return self.net(x)
 
-    def forward(self, x):
-        forward = self.lin1(x)
-        forward = F.tanh(forward)
-        forward = self.lin2(forward)
-        forward = F.tanh(forward)
-        forward = self.lin3(forward)
-        return forward
+def evaluate_regression(regressor,
+                        dataloader,
+                        samples=10,
+                        std_multiplier=2):
+    for Xi, yi in dataloader:
+        Xi = Xi.to(device).reshape(-1, 28)
+        yi = yi.to(device).reshape(-1, 1)
+        print(Xi,yi)
+        preds = [regressor(Xi) for i in range(samples)]
+        preds = torch.stack(preds)
+        means = preds.mean(axis=0)
+        stds = preds.std(axis=0)
+        y_upper = (means + std_multiplier * stds)
+        y_lower = (means - std_multiplier * stds)
+        ic_acc = ((y_lower <= yi) * (y_upper >= yi))
+        ic_acc = ic_acc.float().mean()
+        print(means, stds)
 
-net = NN().to(device)
-
-def model(x_data, y_data):
-    lin1w_prior = dist.Normal(loc=torch.zeros_like(net.lin1.weight),
-                         scale=torch.ones_like(net.lin1.weight))
-    lin1b_prior = dist.Normal(loc=torch.zeros_like(net.lin1.bias),
-                         scale=torch.ones_like(net.lin1.bias))
-
-    lin2w_prior = dist.Normal(loc=torch.zeros_like(net.lin2.weight),
-                         scale=torch.ones_like(net.lin2.weight))
-    lin2b_prior = dist.Normal(loc=torch.zeros_like(net.lin2.bias),
-                         scale=torch.ones_like(net.lin2.bias))
-
-    lin3w_prior = dist.Normal(loc=torch.zeros_like(net.lin3.weight),
-                         scale=torch.ones_like(net.lin3.weight))
-    lin3b_prior = dist.Normal(loc=torch.zeros_like(net.lin3.bias),
-                         scale=torch.ones_like(net.lin3.bias))
-
-    priors = {'lin1.weight': lin1w_prior,
-              'lin1.bias': lin1b_prior,
-              'lin2.weight': lin2w_prior,
-              'lin2.bias:':lin2b_prior,
-              'lin3.weight':lin3w_prior,
-              'lin3.bias':lin3b_prior}
-
-    lifted_module = pyro.random_module("module",net,priors)
-    lifted_reg_module = lifted_module()
-
-    l_hat = log_softmax(lifted_reg_module(x_data))
-    pyro.sample("obs", obs=y_data)
+    return preds, stds #,ic_acc, (y_upper >= y).float().mean(), (y_lower <= y).float().mean()
 
 
